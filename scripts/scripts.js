@@ -312,6 +312,38 @@ async function renderWBDataLayer() {
   };
 }
 
+let universalEditorSupportLoaded = false;
+
+function loadUniversalEditorSupportOnce() {
+  if (universalEditorSupportLoaded || !document.querySelector('main')) return;
+  const { documentElement: html } = document;
+  const inUniversalEditor = html.classList.contains('adobe-ue-edit')
+    || html.classList.contains('adobe-ue-preview');
+  if (!inUniversalEditor) return;
+  universalEditorSupportLoaded = true;
+  import('./editor-support.js');
+}
+
+/**
+ * Loads scripts that listen for Universal Editor content events (blocks, forms).
+ * Safe on the live site: no-op unless the UE preview/edit class is on the root element.
+ */
+function initUniversalEditorSupport() {
+  loadUniversalEditorSupportOnce();
+  if (universalEditorSupportLoaded) return;
+
+  const { documentElement: html } = document;
+  const observer = new MutationObserver(() => {
+    if (html.classList.contains('adobe-ue-edit')
+        || html.classList.contains('adobe-ue-preview')) {
+      observer.disconnect();
+      loadUniversalEditorSupportOnce();
+    }
+  });
+  observer.observe(html, { attributes: true, attributeFilter: ['class'] });
+  window.setTimeout(() => observer.disconnect(), 15000);
+}
+
 /**
  * Loads everything needed to get to LCP.
  * @param {Element} doc The container element
@@ -347,6 +379,8 @@ async function loadEager(doc) {
   } catch (e) {
     // do nothing
   }
+
+  initUniversalEditorSupport();
 }
 
 /**
